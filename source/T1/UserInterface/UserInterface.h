@@ -1,14 +1,16 @@
 #ifndef MENTAL_USER_INTERFACE_H
 #define MENTAL_USER_INTERFACE_H
 
-#include <GLFW/glfw3.h>
 #include <iostream>
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
 #include <cstdio>
 
 #include "../../Core/Types.h"
+#include "../Renderer/Renderer.h"
+
+#include <GLFW/glfw3.h>
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 
 template <typename T = GLFWwindow>
 class UserInterface
@@ -17,26 +19,67 @@ private:
     T* pWindow = nullptr;
     ImGuiContext *pCTX = nullptr;
     ImGuiIO *pIO = nullptr;
+    class Renderer* pRenderer = nullptr;
 
     bool show_demo_window = true;
 
     nil __load_default_fonts();
 
 public:
-    UserInterface(T* pWindow);
+    UserInterface(T* pWindow, class Renderer* pRenderer);
     nil NewFrame();
     nil EndFrame();
     nil Dockspace();
     nil MainMenu();
     nil DrawFrame();
+    nil Viewport();
+    nil Toolbox(); 
     ~UserInterface();
 };
+
+template <typename T>
+nil UserInterface<T>::Toolbox() {
+    ImGui::Begin("Toolbox", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNavFocus);
+    ImGui::Text("Toolbox");
+    ImGui::End();
+}
+
+template <typename T>
+nil UserInterface<T>::Viewport() {
+    ImGui::Begin("Viewport");
+    
+    if (pRenderer) {
+        // Получаем размер доступной области
+        ImVec2 viewport_panel_size = ImGui::GetContentRegionAvail();
+        int width = static_cast<int>(viewport_panel_size.x);
+        int height = static_cast<int>(viewport_panel_size.y);
+        
+        // Рендерим viewport через Renderer
+        pRenderer->RenderViewport(width, height);
+        
+        // Отображаем texture в ImGui
+        GLuint texture = pRenderer->GetViewportTexture();
+        if (texture != 0) {
+            ImGui::Image((void*)(intptr_t)texture, 
+                         ImVec2(width, height), 
+                         ImVec2(0, 1), ImVec2(1, 0));
+        } else {
+            ImGui::Text("Viewport texture не создан");
+        }
+    } else {
+        ImGui::Text("Renderer не инициализирован");
+    }
+    
+    ImGui::End();
+}
 
 template <typename T>
 nil UserInterface<T>::DrawFrame() {
     this->NewFrame();
     this->Dockspace();
     this->MainMenu();
+    this->Viewport();
+    this->Toolbox();
 
     // Демонстрационное окно
     if (show_demo_window) {
@@ -53,6 +96,36 @@ nil UserInterface<T>::DrawFrame() {
         this->show_demo_window = !this->show_demo_window;
     }
     ImGui::SameLine();
+    ImGui::End();
+    
+    // Окно настроек сетки
+    ImGui::Begin("Grid Settings");
+    if (pRenderer) {
+        // Переключатель видимости сетки
+        bool grid_visible = pRenderer->IsGridVisible();
+        if (ImGui::Checkbox("Show Grid", &grid_visible)) {
+            pRenderer->SetGridVisible(grid_visible);
+        }
+        
+        // Настройка размера ячеек
+        float cell_size = pRenderer->GetGridCellSize();
+        if (ImGui::SliderFloat("Cell Size", &cell_size, 10.0f, 200.0f)) {
+            pRenderer->SetGridCellSize(cell_size);
+        }
+        
+        // Настройка цвета сетки
+        static float grid_color[3] = {0.8f, 0.8f, 0.8f};
+        if (ImGui::ColorEdit3("Grid Color", grid_color)) {
+            pRenderer->SetGridColor(grid_color[0], grid_color[1], grid_color[2]);
+        }
+        
+        ImGui::Separator();
+        ImGui::Text("Grid Info:");
+        ImGui::Text("Cell Size: %.1f px", cell_size);
+        ImGui::Text("Viewport: %dx%d", pRenderer->GetViewportWidth(), pRenderer->GetViewportHeight());
+    } else {
+        ImGui::Text("Renderer не инициализирован");
+    }
     ImGui::End();
 
     // Окно консоли
@@ -173,7 +246,7 @@ nil UserInterface<T>::EndFrame() {
 }
 
 template <typename T>
-UserInterface<T>::UserInterface(T* pWindow) {
+UserInterface<T>::UserInterface(T* pWindow, class Renderer* pRenderer) {
     IMGUI_CHECKVERSION();
     pCTX = ImGui::CreateContext();
     pIO = &ImGui::GetIO();
@@ -209,6 +282,7 @@ UserInterface<T>::UserInterface(T* pWindow) {
     std::cout << "ImGui успешно инициализирован" << std::endl;
 
     this->pWindow = pWindow;
+    this->pRenderer = pRenderer;
     return;
 }
 

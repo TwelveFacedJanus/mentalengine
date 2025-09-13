@@ -42,6 +42,7 @@ endif
 # Source files (organized for clarity)
 sources = files(
   'source/main.cpp',
+  'source/T1/Renderer/Renderer.cpp',
 )
 
 # Collect dependencies

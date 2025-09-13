@@ -1,0 +1,25 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "meson",
+			"mode": "build",
+			"problemMatcher": [],
+			"label": "Meson: Run build",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{
+			"type": "meson",
+			"mode": "recompile",
+			"problemMatcher": [],
+			"label": "Meson: Run recompile",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		}
+	]
+}

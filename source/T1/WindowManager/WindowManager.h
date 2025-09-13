@@ -45,7 +45,7 @@ WindowManager<T>::WindowManager() {
 
 template <typename T>
 nil WindowManager<T>::__load_ui() {
-    pUI = std::make_shared<UserInterface<T>>(this->pWindow);
+    pUI = std::make_shared<UserInterface<T>>(this->pWindow, this->pRenderer.get());
 }
 
 template <typename T>
