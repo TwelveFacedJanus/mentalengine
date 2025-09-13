@@ -39,3 +39,11 @@
 
 # debug information files
 *.dwo
+
+# Meson build folder
+build/
+
+*.png
+
+# Fuck it
+.DS_Store

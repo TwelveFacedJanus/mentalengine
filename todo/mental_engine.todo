@@ -1,0 +1,17 @@
+Tier0:
+    - create main layout
+        - create left panel (sidepanel)
+        - create right panel (properties)
+        - create toolbox
+        - create statusbar
+        - create viewport for opengl rendering
+        - draw cellgrid in viewport
+    - implement layout functions
+        - show some opengl rectangle in viewport
+        - create terminal
+    - create documentation for all functions and classes in doxygen style
+        - initialize main doxygen file
+        - add all functions and classes to doxygen file
+    - create meson build for tier0 for fast compilation speed.
+        - compile tier0 as library libmentaletier0.so/dll/etc
+    - create mascot
