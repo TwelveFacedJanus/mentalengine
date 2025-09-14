@@ -11,8 +11,8 @@ Tier0:
         - create terminal @started(25-09-14 13:05) @done(25-09-14 13:14)
         - redirect stdout to terminal @started(25-09-14 13:05) @done(25-09-14 13:14)
     - create documentation for all functions and classes in doxygen style
-        - initialize main doxygen file
-        - add all functions and classes to doxygen file
+        - initialize main doxygen file @started(25-09-14 13:15)
+        - add all functions and classes to doxygen file @started(25-09-14 13:15)
     - create meson build for tier0 for fast compilation speed.
         - compile tier0 as library libmentaletier0.so/dll/etc
     - create mascot
