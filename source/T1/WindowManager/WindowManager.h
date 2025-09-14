@@ -18,6 +18,8 @@
 #include "source/T1/UserInterface/UserInterface.h"
 #include <GLFW/glfw3.h>
 #include <memory>
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
 
 /**
  * @class WindowManager
@@ -104,6 +106,13 @@ public:
     nil Run() const;
     
     /**
+     * @brief Sets up input callbacks for camera control
+     * @tparam T Window type
+     * @private
+     */
+    nil __setup_input_callbacks();
+    
+    /**
      * @brief Deleted copy assignment operator
      * @param other Other WindowManager instance
      * @return WindowManager& Deleted
@@ -145,6 +154,7 @@ WindowManager<T>::WindowManager() {
     this->__create_window();
     this->__initialize_renderer();
     this->__load_ui();
+    this->__setup_input_callbacks();
 }
 
 /**
@@ -229,6 +239,163 @@ nil WindowManager<T>::__create_window() {
 template <typename T>
 nil WindowManager<T>::__initialize_glfw_library() const {
     if (!glfwInit()) return;
+}
+
+/**
+ * @brief Sets up input callbacks for camera control
+ * @tparam T Window type
+ * @private
+ * 
+ * Sets up GLFW input callbacks for mouse and keyboard input to control the camera.
+ * This includes mouse button presses, mouse movement, scroll wheel, and keyboard input.
+ * ImGui has priority over camera input - if ImGui wants to capture input, camera won't receive it.
+ */
+template <typename T>
+nil WindowManager<T>::__setup_input_callbacks() {
+    // Mouse button callback
+    glfwSetMouseButtonCallback(this->pWindow, [](GLFWwindow* window, int button, int action, int mods) {
+        (void)mods; // Suppress unused parameter warning
+        WindowManager* wm = static_cast<WindowManager*>(glfwGetWindowUserPointer(window));
+        if (!wm || !wm->pUI) return;
+        
+        // Проверяем, хочет ли ImGui захватить ввод
+        ImGuiIO& io = ImGui::GetIO();
+        if (io.WantCaptureMouse) {
+            // Проверяем, находится ли мышь над viewport
+            if (wm->pUI && wm->pUI->IsMouseOverViewport()) {
+                // Мышь над viewport - передаем в камеру и в ImGui
+                ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
+                if (wm->pRenderer && wm->pRenderer->GetCamera()) {
+                    double x, y;
+                    glfwGetCursorPos(window, &x, &y);
+                    wm->pRenderer->GetCamera()->HandleMouseButton(button, action, static_cast<float>(x), static_cast<float>(y));
+                }
+                // Также передаем в UserInterface для рисования
+                if (wm->pUI) {
+                    double x, y;
+                    glfwGetCursorPos(window, &x, &y);
+                    wm->pUI->HandleDrawingInput(button, action, static_cast<float>(x), static_cast<float>(y));
+                }
+            } else {
+                // Мышь не над viewport - только ImGui
+                ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
+            }
+            return;
+        }
+        
+        // ImGui не хочет ввод, передаем в камеру
+        if (wm->pRenderer && wm->pRenderer->GetCamera()) {
+            double x, y;
+            glfwGetCursorPos(window, &x, &y);
+            wm->pRenderer->GetCamera()->HandleMouseButton(button, action, static_cast<float>(x), static_cast<float>(y));
+        }
+    });
+    
+    // Mouse movement callback
+    glfwSetCursorPosCallback(this->pWindow, [](GLFWwindow* window, double x, double y) {
+        WindowManager* wm = static_cast<WindowManager*>(glfwGetWindowUserPointer(window));
+        if (!wm || !wm->pUI) return;
+        
+        // Проверяем, хочет ли ImGui захватить ввод
+        ImGuiIO& io = ImGui::GetIO();
+        if (io.WantCaptureMouse) {
+            // Проверяем, находится ли мышь над viewport
+            if (wm->pUI && wm->pUI->IsMouseOverViewport()) {
+                // Мышь над viewport - передаем в камеру и в ImGui
+                ImGui_ImplGlfw_CursorPosCallback(window, x, y);
+                if (wm->pRenderer && wm->pRenderer->GetCamera()) {
+                    wm->pRenderer->GetCamera()->HandleMouseMove(static_cast<float>(x), static_cast<float>(y));
+                }
+                // Также передаем в UserInterface для рисования
+                if (wm->pUI) {
+                    wm->pUI->HandleDrawingMouseMove(static_cast<float>(x), static_cast<float>(y));
+                }
+            } else {
+                // Мышь не над viewport - только ImGui
+                ImGui_ImplGlfw_CursorPosCallback(window, x, y);
+            }
+            return;
+        }
+        
+        // ImGui не хочет ввод, передаем в камеру
+        if (wm->pRenderer && wm->pRenderer->GetCamera()) {
+            wm->pRenderer->GetCamera()->HandleMouseMove(static_cast<float>(x), static_cast<float>(y));
+        }
+    });
+    
+    // Mouse scroll callback
+    glfwSetScrollCallback(this->pWindow, [](GLFWwindow* window, double xoffset, double yoffset) {
+        WindowManager* wm = static_cast<WindowManager*>(glfwGetWindowUserPointer(window));
+        if (!wm || !wm->pUI) return;
+        
+        // Проверяем, хочет ли ImGui захватить ввод
+        ImGuiIO& io = ImGui::GetIO();
+        if (io.WantCaptureMouse) {
+            // Проверяем, находится ли мышь над viewport
+            if (wm->pUI && wm->pUI->IsMouseOverViewport()) {
+                // Мышь над viewport - передаем в камеру, но также передаем в ImGui
+                ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset);
+                if (wm->pRenderer && wm->pRenderer->GetCamera()) {
+                    wm->pRenderer->GetCamera()->HandleMouseScroll(static_cast<float>(xoffset), static_cast<float>(yoffset));
+                }
+            } else {
+                // Мышь не над viewport - только ImGui
+                ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset);
+            }
+            return;
+        }
+        
+        // ImGui не хочет ввод, передаем в камеру
+        if (wm->pRenderer && wm->pRenderer->GetCamera()) {
+            wm->pRenderer->GetCamera()->HandleMouseScroll(static_cast<float>(xoffset), static_cast<float>(yoffset));
+        }
+    });
+    
+    // Keyboard callback
+    glfwSetKeyCallback(this->pWindow, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
+        (void)scancode; // Suppress unused parameter warning
+        (void)mods; // Suppress unused parameter warning
+        WindowManager* wm = static_cast<WindowManager*>(glfwGetWindowUserPointer(window));
+        if (!wm || !wm->pUI) return;
+        
+        // Проверяем, хочет ли ImGui захватить ввод
+        ImGuiIO& io = ImGui::GetIO();
+        if (io.WantCaptureKeyboard) {
+            // Проверяем, находится ли мышь над viewport
+            if (wm->pUI && wm->pUI->IsMouseOverViewport()) {
+                // Мышь над viewport - передаем в камеру, но также передаем в ImGui
+                ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
+                if (wm->pRenderer && wm->pRenderer->GetCamera()) {
+                    wm->pRenderer->GetCamera()->HandleKey(key, action);
+                }
+            } else {
+                // Мышь не над viewport - только ImGui
+                ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
+            }
+            return;
+        }
+        
+        // ImGui не хочет ввод, передаем в камеру
+        if (wm->pRenderer && wm->pRenderer->GetCamera()) {
+            wm->pRenderer->GetCamera()->HandleKey(key, action);
+        }
+    });
+    
+    // Character callback for text input (needed for ImGui text input)
+    glfwSetCharCallback(this->pWindow, [](GLFWwindow* window, unsigned int codepoint) {
+        WindowManager* wm = static_cast<WindowManager*>(glfwGetWindowUserPointer(window));
+        if (!wm || !wm->pUI) return;
+        
+        // Проверяем, хочет ли ImGui захватить ввод
+        ImGuiIO& io = ImGui::GetIO();
+        if (io.WantTextInput) {
+            // ImGui хочет захватить ввод, передаем ему событие
+            ImGui_ImplGlfw_CharCallback(window, codepoint);
+        }
+    });
+    
+    // Set window user pointer for callbacks
+    glfwSetWindowUserPointer(this->pWindow, this);
 }
 
 #endif // WINDOW_MANAGER_H

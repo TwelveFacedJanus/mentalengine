@@ -42,6 +42,8 @@ endif
 # Source files (organized for clarity)
 sources = files(
   'source/main.cpp',
+  'source/Core/Math.cpp',
+  'source/T1/Camera/Camera.cpp',
   'source/T1/Renderer/Renderer.cpp',
 )
 

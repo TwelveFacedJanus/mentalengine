@@ -33,6 +33,17 @@
 template <typename T> class UserInterface;
 class ConsoleRedirectBuffer;
 
+/**
+ * @enum ToolType
+ * @brief Available drawing tools
+ */
+enum class ToolType {
+    None,       ///< No tool selected
+    Line,       ///< Line drawing tool
+    Rectangle,  ///< Rectangle drawing tool
+    Circle      ///< Circle drawing tool
+};
+
 // Forward declaration for method
 template <typename T> void __add_console_output_impl(void* ui, const std::string& text);
 
@@ -114,6 +125,14 @@ private:
     class Renderer* pRenderer = nullptr;    ///< Pointer to the renderer
 
     bool show_demo_window = true;           ///< Flag to show/hide ImGui demo window
+    bool mouse_over_viewport = false;       ///< Flag indicating if mouse is over viewport
+
+    // Drawing tools
+    ToolType current_tool = ToolType::None; ///< Currently selected tool
+    bool is_drawing = false;                ///< Currently drawing
+    MentalEngine::Math::Vector2 line_start;               ///< Line start point
+    MentalEngine::Math::Vector2 line_end;                 ///< Line end point
+    std::vector<MentalEngine::Math::Vector2> line_points; ///< All line points for rendering
 
     // Console system
     std::vector<std::string> console_output;        ///< Console output buffer
@@ -197,6 +216,28 @@ public:
     nil Console(); 
     
     /**
+     * @brief Checks if mouse is over the viewport area
+     * @return true if mouse is over viewport, false otherwise
+     */
+    bool IsMouseOverViewport();
+    
+    /**
+     * @brief Handles mouse input for drawing tools
+     * @param button Mouse button
+     * @param action Button action (press/release)
+     * @param x Mouse x coordinate
+     * @param y Mouse y coordinate
+     */
+    nil HandleDrawingInput(int button, int action, float x, float y);
+    
+    /**
+     * @brief Handles mouse movement for drawing tools
+     * @param x Mouse x coordinate
+     * @param y Mouse y coordinate
+     */
+    nil HandleDrawingMouseMove(float x, float y);
+    
+    /**
      * @brief Destructor - cleans up resources
      */
     ~UserInterface();
@@ -206,13 +247,83 @@ public:
  * @brief Renders the toolbox panel
  * @tparam T Window type
  * 
- * Creates a simple toolbox panel with basic tools and controls.
- * Currently displays a placeholder "Toolbox" text.
+ * Creates a toolbox panel with drawing tools and controls.
+ * Includes tools for drawing lines, rectangles, and circles.
  */
 template <typename T>
 nil UserInterface<T>::Toolbox() {
     ImGui::Begin("Toolbox", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNavFocus);
-    ImGui::Text("Toolbox");
+    
+    ImGui::Text("Drawing Tools");
+    ImGui::Separator();
+    
+    // Tool selection buttons
+    if (ImGui::Button("Select", ImVec2(80, 30))) {
+        current_tool = ToolType::None;
+        is_drawing = false;
+    }
+    if (current_tool == ToolType::None) {
+        ImGui::SameLine();
+        ImGui::Text("✓");
+    }
+    
+    if (ImGui::Button("Line", ImVec2(80, 30))) {
+        current_tool = ToolType::Line;
+        is_drawing = false;
+    }
+    if (current_tool == ToolType::Line) {
+        ImGui::SameLine();
+        ImGui::Text("✓");
+    }
+    
+    if (ImGui::Button("Rectangle", ImVec2(80, 30))) {
+        current_tool = ToolType::Rectangle;
+        is_drawing = false;
+    }
+    if (current_tool == ToolType::Rectangle) {
+        ImGui::SameLine();
+        ImGui::Text("✓");
+    }
+    
+    if (ImGui::Button("Circle", ImVec2(80, 30))) {
+        current_tool = ToolType::Circle;
+        is_drawing = false;
+    }
+    if (current_tool == ToolType::Circle) {
+        ImGui::SameLine();
+        ImGui::Text("✓");
+    }
+    
+    ImGui::Separator();
+    
+    // Tool info
+    ImGui::Text("Current Tool:");
+    switch (current_tool) {
+        case ToolType::None:
+            ImGui::Text("Select Tool");
+            break;
+        case ToolType::Line:
+            ImGui::Text("Line Tool");
+            ImGui::Text("Click and drag to draw");
+            break;
+        case ToolType::Rectangle:
+            ImGui::Text("Rectangle Tool");
+            ImGui::Text("Click and drag to draw");
+            break;
+        case ToolType::Circle:
+            ImGui::Text("Circle Tool");
+            ImGui::Text("Click and drag to draw");
+            break;
+    }
+    
+    ImGui::Separator();
+    
+    // Clear button
+    if (ImGui::Button("Clear All", ImVec2(80, 30))) {
+        line_points.clear();
+        is_drawing = false;
+    }
+    
     ImGui::End();
 }
 
@@ -310,6 +421,9 @@ template <typename T>
 nil UserInterface<T>::Viewport() {
     ImGui::Begin("Viewport");
     
+    // Устанавливаем флаг, если мышь находится над viewport
+    mouse_over_viewport = ImGui::IsWindowHovered();
+    
     if (pRenderer) {
         // Получаем размер доступной области
         ImVec2 viewport_panel_size = ImGui::GetContentRegionAvail();
@@ -318,6 +432,17 @@ nil UserInterface<T>::Viewport() {
         
         // Рендерим viewport через Renderer
         pRenderer->RenderViewport(width, height);
+        
+        // Рендерим нарисованные линии
+        if (!line_points.empty() && line_points.size() % 2 == 0) {
+            pRenderer->RenderLines(line_points, MentalEngine::Math::Vector3(1.0f, 0.0f, 0.0f), 2.0f);
+        }
+        
+        // Рендерим текущую линию, если рисуем
+        if (is_drawing && current_tool == ToolType::Line) {
+            std::vector<MentalEngine::Math::Vector2> current_line = {line_start, line_end};
+            pRenderer->RenderLines(current_line, MentalEngine::Math::Vector3(0.0f, 1.0f, 0.0f), 2.0f);
+        }
         
         // Отображаем texture в ImGui
         GLuint texture = pRenderer->GetViewportTexture();
@@ -583,6 +708,11 @@ UserInterface<T>::UserInterface(T* pWindow, class Renderer* pRenderer) {
 
     this->pWindow = pWindow;
     this->pRenderer = pRenderer;
+    
+    // Добавляем тестовую линию для проверки рендеринга
+    line_points.push_back(MentalEngine::Math::Vector2(-0.5f, -0.5f));
+    line_points.push_back(MentalEngine::Math::Vector2(0.5f, 0.5f));
+    
     return;
 }
 
@@ -746,6 +876,100 @@ nil UserInterface<T>::__add_console_output(const std::string& text) {
 template <typename T>
 void __add_console_output_impl(void* ui, const std::string& text) {
     static_cast<UserInterface<T>*>(ui)->__add_console_output(text);
+}
+
+/**
+ * @brief Checks if mouse is over the viewport area
+ * @tparam T Window type
+ * @return true if mouse is over viewport, false otherwise
+ * 
+ * This method checks if the current mouse position is within the bounds
+ * of the viewport window. This is used to determine whether camera input
+ * should be processed or if ImGui should handle the input.
+ */
+template <typename T>
+bool UserInterface<T>::IsMouseOverViewport() {
+    // Безопасная проверка - используем сохраненное состояние
+    // вместо обращения к ImGui API, которое может быть недоступно
+    return mouse_over_viewport;
+}
+
+/**
+ * @brief Handles mouse input for drawing tools
+ * @tparam T Window type
+ * @param button Mouse button
+ * @param action Button action (press/release)
+ * @param x Mouse x coordinate
+ * @param y Mouse y coordinate
+ * 
+ * Handles mouse button presses and releases for drawing operations.
+ * Supports line drawing with left mouse button.
+ */
+template <typename T>
+nil UserInterface<T>::HandleDrawingInput(int button, int action, float x, float y) {
+    if (current_tool == ToolType::None) return;
+    
+    if (button == GLFW_MOUSE_BUTTON_LEFT) {
+        if (action == GLFW_PRESS) {
+            // Start drawing
+            is_drawing = true;
+            // Безопасное преобразование координат мыши в координаты viewport
+            // Используем размеры окна GLFW вместо ImGui API
+            if (pWindow) {
+                int window_width, window_height;
+                glfwGetWindowSize(pWindow, &window_width, &window_height);
+                
+                if (window_width > 0 && window_height > 0) {
+                    // Преобразуем координаты мыши в нормализованные координаты (-1 до 1)
+                    float viewport_x = (x / window_width) * 2.0f - 1.0f;
+                    float viewport_y = 1.0f - (y / window_height) * 2.0f;
+                    
+                    
+                    line_start = MentalEngine::Math::Vector2(viewport_x, viewport_y);
+                    line_end = MentalEngine::Math::Vector2(viewport_x, viewport_y);
+                }
+            }
+        } else if (action == GLFW_RELEASE) {
+            // Finish drawing
+            if (is_drawing && current_tool == ToolType::Line) {
+                // Add line to the list of drawn lines
+                line_points.push_back(line_start);
+                line_points.push_back(line_end);
+            }
+            is_drawing = false;
+        }
+    }
+}
+
+/**
+ * @brief Handles mouse movement for drawing tools
+ * @tparam T Window type
+ * @param x Mouse x coordinate
+ * @param y Mouse y coordinate
+ * 
+ * Handles mouse movement during drawing operations.
+ * Updates the current line being drawn.
+ */
+template <typename T>
+nil UserInterface<T>::HandleDrawingMouseMove(float x, float y) {
+    (void)x; (void)y; // Suppress unused parameter warnings
+    if (current_tool == ToolType::None || !is_drawing) return;
+    
+    // Безопасное преобразование координат мыши в координаты viewport
+    // Используем размеры окна GLFW вместо ImGui API
+    if (pWindow) {
+        int window_width, window_height;
+        glfwGetWindowSize(pWindow, &window_width, &window_height);
+        
+        if (window_width > 0 && window_height > 0) {
+            // Преобразуем координаты мыши в нормализованные координаты (-1 до 1)
+            float viewport_x = (x / window_width) * 2.0f - 1.0f;
+            float viewport_y = 1.0f - (y / window_height) * 2.0f;
+            
+            // Update the end point of the current line being drawn
+            line_end = MentalEngine::Math::Vector2(viewport_x, viewport_y);
+        }
+    }
 }
 
 #endif // MENTAL_USER_INTERFACE_H

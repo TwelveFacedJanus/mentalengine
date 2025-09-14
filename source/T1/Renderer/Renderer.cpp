@@ -11,8 +11,8 @@
 
 #include "Renderer.h"
 #include <iostream>
-#include <algorithm>
 #include <vector>
+#include <memory>
 
 /**
  * @brief Initializes the viewport with specified dimensions
@@ -146,14 +146,20 @@ nil Renderer::__cleanup_viewport() {
 nil Renderer::__init_shaders() {
     std::cout << "Initializing shaders..." << std::endl;
     
-    // Простой vertex shader
+    // Vertex shader with camera support
     const char* vertex_shader_source = R"(
         #version 330 core
         layout (location = 0) in vec3 aPos;
         layout (location = 1) in vec3 aColor;
+        
+        uniform mat4 uViewMatrix;
+        uniform mat4 uProjectionMatrix;
+        uniform mat4 uModelMatrix;
+        
         out vec3 vertexColor;
+        
         void main() {
-            gl_Position = vec4(aPos, 1.0);
+            gl_Position = uProjectionMatrix * uViewMatrix * uModelMatrix * vec4(aPos, 1.0);
             vertexColor = aColor;
         }
     )";
@@ -217,6 +223,15 @@ nil Renderer::__init_shaders() {
         std::cout << "ERROR: Failed to create shader program!" << std::endl;
     } else {
         std::cout << "Shaders initialized successfully, program ID: " << shader_program << std::endl;
+        
+        // Get uniform locations
+        view_matrix_location = glGetUniformLocation(shader_program, "uViewMatrix");
+        projection_matrix_location = glGetUniformLocation(shader_program, "uProjectionMatrix");
+        model_matrix_location = glGetUniformLocation(shader_program, "uModelMatrix");
+        
+        if (view_matrix_location == -1 || projection_matrix_location == -1 || model_matrix_location == -1) {
+            std::cout << "Warning: Some uniform locations not found!" << std::endl;
+        }
     }
 }
 
@@ -248,6 +263,24 @@ nil Renderer::__render_viewport_content() {
     
     // Используем наш shader program
     glUseProgram(shader_program);
+    
+    // Update camera
+    if (camera) {
+        camera->Update(viewport_width, viewport_height);
+        
+        // Set uniform matrices
+        if (view_matrix_location != -1) {
+            glUniformMatrix4fv(view_matrix_location, 1, GL_FALSE, camera->GetViewMatrix().data());
+        }
+        if (projection_matrix_location != -1) {
+            glUniformMatrix4fv(projection_matrix_location, 1, GL_FALSE, camera->GetProjectionMatrix().data());
+        }
+        if (model_matrix_location != -1) {
+            // Identity matrix for now
+            MentalEngine::Math::Matrix4 model_matrix;
+            glUniformMatrix4fv(model_matrix_location, 1, GL_FALSE, model_matrix.data());
+        }
+    }
     
     // Простой рендеринг - градиентный фон (используем современный OpenGL)
     // Вершины для фона (квадрат на весь экран)
@@ -389,6 +422,21 @@ nil Renderer::__render_grid() {
     // Используем наш shader program
     glUseProgram(shader_program);
     
+    // Set uniform matrices for grid
+    if (camera) {
+        if (view_matrix_location != -1) {
+            glUniformMatrix4fv(view_matrix_location, 1, GL_FALSE, camera->GetViewMatrix().data());
+        }
+        if (projection_matrix_location != -1) {
+            glUniformMatrix4fv(projection_matrix_location, 1, GL_FALSE, camera->GetProjectionMatrix().data());
+        }
+        if (model_matrix_location != -1) {
+            // Identity matrix for grid
+            MentalEngine::Math::Matrix4 model_matrix;
+            glUniformMatrix4fv(model_matrix_location, 1, GL_FALSE, model_matrix.data());
+        }
+    }
+    
     // Устанавливаем толщину линий сетки
     glLineWidth(grid_line_width);
     
@@ -432,6 +480,110 @@ nil Renderer::__render_grid() {
     }
     
     // Создаем VAO для сетки
+    GLuint VAO, VBO, colorVBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &colorVBO);
+    
+    // Привязываем VAO
+    glBindVertexArray(VAO);
+    
+    // Загружаем данные вершин
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+    
+    // Загружаем данные цветов
+    glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+    glBufferData(GL_ARRAY_BUFFER, colors.size() * sizeof(float), colors.data(), GL_STATIC_DRAW);
+    
+    // Настраиваем атрибуты
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    
+    glEnableVertexAttribArray(1);
+    glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    
+    // Рендерим линии
+    glDrawArrays(GL_LINES, 0, vertices.size() / 3);
+    
+    // Отключаем атрибуты
+    glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
+    
+    // Отвязываем VAO
+    glBindVertexArray(0);
+    
+    // Очищаем буферы
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &colorVBO);
+    
+    // Сбрасываем толщину линии
+    glLineWidth(1.0f);
+}
+
+/**
+ * @brief Renders lines from a list of points
+ * 
+ * Renders lines using the provided points. Each pair of points represents
+ * a line segment. Uses the current shader program and camera matrices.
+ * 
+ * @param points Vector of line points (pairs of start/end points)
+ * @param color Line color (RGB)
+ * @param line_width Line width in pixels
+ */
+nil Renderer::RenderLines(const std::vector<MentalEngine::Math::Vector2>& points, const MentalEngine::Math::Vector3& color, float line_width) {
+    if (points.empty() || points.size() % 2 != 0) return;
+    
+    // Используем наш shader program
+    glUseProgram(shader_program);
+    
+    // Set uniform matrices
+    if (camera) {
+        if (view_matrix_location != -1) {
+            glUniformMatrix4fv(view_matrix_location, 1, GL_FALSE, camera->GetViewMatrix().data());
+        }
+        if (projection_matrix_location != -1) {
+            glUniformMatrix4fv(projection_matrix_location, 1, GL_FALSE, camera->GetProjectionMatrix().data());
+        }
+        if (model_matrix_location != -1) {
+            // Identity matrix for lines
+            MentalEngine::Math::Matrix4 model_matrix;
+            glUniformMatrix4fv(model_matrix_location, 1, GL_FALSE, model_matrix.data());
+        }
+    }
+    
+    // Устанавливаем толщину линии
+    glLineWidth(line_width);
+    
+    // Создаем массивы для вершин и цветов
+    std::vector<float> vertices;
+    std::vector<float> colors;
+    
+    // Конвертируем 2D точки в 3D (Z = 0) и добавляем цвета
+    for (size_t i = 0; i < points.size(); i += 2) {
+        // Начальная точка линии
+        vertices.push_back(points[i].x);
+        vertices.push_back(points[i].y);
+        vertices.push_back(0.0f);
+        
+        // Конечная точка линии
+        vertices.push_back(points[i + 1].x);
+        vertices.push_back(points[i + 1].y);
+        vertices.push_back(0.0f);
+        
+        // Цвета для обеих точек
+        colors.push_back(color.x);
+        colors.push_back(color.y);
+        colors.push_back(color.z);
+        colors.push_back(color.x);
+        colors.push_back(color.y);
+        colors.push_back(color.z);
+    }
+    
+    // Создаем VAO для линий
     GLuint VAO, VBO, colorVBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);

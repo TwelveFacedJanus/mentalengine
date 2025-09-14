@@ -19,3 +19,9 @@ Tier0:
     - fix bugs
         - i see some memory leaks in renderer class because my computer is laggy
         - fix default opengl version to supported for any computer
+    - create toolbox panel with CAD instruments
+        - line
+        - circle
+        - rectangle
+        - polyline
+    - Camera & movement system @started(25-09-14 14:26)

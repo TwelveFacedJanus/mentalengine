@@ -17,6 +17,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include "../../Core/Types.h"
+#include "../Camera/Camera.h"
 #include <functional>
 
 /**
@@ -50,12 +51,18 @@ private:
     GLuint shader_program = 0;    ///< OpenGL shader program ID
     GLuint vertex_shader = 0;     ///< OpenGL vertex shader ID
     GLuint fragment_shader = 0;   ///< OpenGL fragment shader ID
+    GLint view_matrix_location = -1;      ///< View matrix uniform location
+    GLint projection_matrix_location = -1; ///< Projection matrix uniform location
+    GLint model_matrix_location = -1;     ///< Model matrix uniform location
     
     // Grid settings
     float grid_cell_size = 50.0f;  ///< Grid cell size in pixels
     float grid_line_width = 3.0f;  ///< Grid line thickness
     float grid_color[3] = {1.0f, 1.0f, 1.0f};  ///< Grid line color (RGB) - bright white
     bool show_grid = true;  ///< Flag to show/hide grid
+    
+    // Camera system
+    std::shared_ptr<MentalEngine::Camera> camera;  ///< Camera instance
 
     /**
      * @brief Initializes the OpenGL viewport framebuffer
@@ -106,6 +113,9 @@ public:
         if (glewInit() != GLEW_OK) {return;}
         // Shaders are not initialized here - they will be initialized on first RenderViewport call
         shader_program = 0;  // Ensure shaders are not initialized
+        
+        // Initialize camera
+        camera = std::make_shared<MentalEngine::Camera>();
     }
     
     /**
@@ -208,6 +218,27 @@ public:
      * @return float Current cell size in pixels
      */
     float GetGridCellSize() const { return grid_cell_size; }
+    
+    // Camera methods
+    /**
+     * @brief Gets the camera instance
+     * @return std::shared_ptr<MentalEngine::Camera> Camera instance
+     */
+    std::shared_ptr<MentalEngine::Camera> GetCamera() const { return camera; }
+    
+    /**
+     * @brief Sets the camera instance
+     * @param cam Camera instance to set
+     */
+    nil SetCamera(std::shared_ptr<MentalEngine::Camera> cam) { camera = cam; }
+    
+    /**
+     * @brief Renders lines from a list of points
+     * @param points Vector of line points (pairs of start/end points)
+     * @param color Line color (RGB)
+     * @param line_width Line width in pixels
+     */
+    nil RenderLines(const std::vector<MentalEngine::Math::Vector2>& points, const MentalEngine::Math::Vector3& color = MentalEngine::Math::Vector3(1.0f, 1.0f, 1.0f), float line_width = 2.0f);
 };
 
 #endif // MENTAL_RENDERER_H
