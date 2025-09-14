@@ -4,14 +4,18 @@ Tier0:
         - create right panel (properties)
         - create toolbox
         - create statusbar
-        - create viewport for opengl rendering
-        - draw cellgrid in viewport
+        - create viewport for opengl rendering @started(25-09-13 11:26) @done(25-09-13 11:27)
+        - draw cellgrid in viewport @started(25-09-13 11:26) @done(25-09-13 11:28)
     - implement layout functions
-        - show some opengl rectangle in viewport
-        - create terminal
+        - show some opengl rectangle in viewport @started(25-09-13 11:30) @done(25-09-13 11:41)
+        - create terminal @started(25-09-14 13:05) @done(25-09-14 13:14)
+        - redirect stdout to terminal @started(25-09-14 13:05) @done(25-09-14 13:14)
     - create documentation for all functions and classes in doxygen style
         - initialize main doxygen file
         - add all functions and classes to doxygen file
     - create meson build for tier0 for fast compilation speed.
         - compile tier0 as library libmentaletier0.so/dll/etc
     - create mascot
+    - fix bugs
+        - i see some memory leaks in renderer class because my computer is laggy
+        - fix default opengl version to supported for any computer
