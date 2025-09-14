@@ -1,3 +1,15 @@
+/**
+ * @file UserInterface.h
+ * @brief ImGui-based user interface system for MentalEngine
+ * @author MentalEngine Team
+ * @version 1.0.0
+ * @date 2024
+ * 
+ * This file defines the UserInterface template class and ConsoleRedirectBuffer
+ * class, which provide a comprehensive ImGui-based user interface system
+ * with docking, console output redirection, and viewport integration.
+ */
+
 #ifndef MENTAL_USER_INTERFACE_H
 #define MENTAL_USER_INTERFACE_H
 
@@ -21,18 +33,35 @@
 template <typename T> class UserInterface;
 class ConsoleRedirectBuffer;
 
-// Forward declaration для метода
+// Forward declaration for method
 template <typename T> void __add_console_output_impl(void* ui, const std::string& text);
 
-// Класс для перехвата вывода в консоль
+/**
+ * @class ConsoleRedirectBuffer
+ * @brief Custom streambuf for redirecting console output to ImGui
+ * 
+ * This class extends std::streambuf to intercept console output (std::cout, std::cerr)
+ * and redirect it to the ImGui console window. It provides thread-safe output
+ * redirection with automatic line buffering.
+ */
 class ConsoleRedirectBuffer : public std::streambuf {
 private:
-    void* ui;
+    void* ui;  ///< Pointer to the UserInterface instance
     
 public:
+    /**
+     * @brief Constructor
+     * @param ui Pointer to the UserInterface instance
+     */
     ConsoleRedirectBuffer(void* ui) : ui(ui) {}
     
 protected:
+    /**
+     * @brief Handles single character overflow
+     * @param c Character to output
+     * @return int_type Character processed
+     * @protected
+     */
     virtual int_type overflow(int_type c) override {
         if (c != EOF) {
             char ch = static_cast<char>(c);
@@ -41,50 +70,145 @@ protected:
         return c;
     }
     
+    /**
+     * @brief Handles multiple character output
+     * @param s Character buffer
+     * @param count Number of characters to output
+     * @return std::streamsize Number of characters processed
+     * @protected
+     */
     virtual std::streamsize xsputn(const char* s, std::streamsize count) override {
         __add_console_output_impl<GLFWwindow>(ui, std::string(s, count));
         return count;
     }
 };
 
+/**
+ * @class UserInterface
+ * @brief Template class for ImGui-based user interface system
+ * 
+ * The UserInterface class provides a comprehensive ImGui-based user interface
+ * system with docking support, console output redirection, viewport integration,
+ * and various UI panels. It manages the entire UI lifecycle and provides
+ * a clean interface for rendering UI elements.
+ * 
+ * @tparam T Window type (defaults to GLFWwindow)
+ * 
+ * Key features:
+ * - ImGui integration with docking support
+ * - Console output redirection and management
+ * - Viewport rendering integration
+ * - Customizable UI panels (toolbox, console, properties, etc.)
+ * - Font loading and management
+ * - Thread-safe console output
+ * 
+ * @note This class requires a valid OpenGL context and ImGui initialization
+ */
 template <typename T = GLFWwindow>
 class UserInterface
 {
 private:
-    T* pWindow = nullptr;
-    ImGuiContext *pCTX = nullptr;
-    ImGuiIO *pIO = nullptr;
-    class Renderer* pRenderer = nullptr;
+    T* pWindow = nullptr;                    ///< Pointer to the window
+    ImGuiContext *pCTX = nullptr;           ///< ImGui context
+    ImGuiIO *pIO = nullptr;                 ///< ImGui IO interface
+    class Renderer* pRenderer = nullptr;    ///< Pointer to the renderer
 
-    bool show_demo_window = true;
+    bool show_demo_window = true;           ///< Flag to show/hide ImGui demo window
 
-    // Терминал
-    std::vector<std::string> console_output;
-    std::string console_input;
-    bool console_scroll_to_bottom = true;
-    std::mutex console_mutex;
-    static const size_t MAX_CONSOLE_LINES = 1000;
-    ConsoleRedirectBuffer* cout_buffer = nullptr;
-    ConsoleRedirectBuffer* cerr_buffer = nullptr;
+    // Console system
+    std::vector<std::string> console_output;        ///< Console output buffer
+    std::string console_input;                      ///< Console input buffer
+    bool console_scroll_to_bottom = true;           ///< Auto-scroll flag
+    std::mutex console_mutex;                       ///< Console thread safety mutex
+    static const size_t MAX_CONSOLE_LINES = 1000;  ///< Maximum console lines
+    ConsoleRedirectBuffer* cout_buffer = nullptr;   ///< stdout redirect buffer
+    ConsoleRedirectBuffer* cerr_buffer = nullptr;   ///< stderr redirect buffer
 
+    /**
+     * @brief Loads default fonts for the UI
+     * @private
+     */
     nil __load_default_fonts();
+    
+    /**
+     * @brief Initializes console output redirection
+     * @private
+     */
     nil __init_console_redirect();
+    
+    /**
+     * @brief Cleans up console output redirection
+     * @private
+     */
     nil __cleanup_console_redirect();
 
 public:
+    /**
+     * @brief Adds text to console output
+     * @param text Text to add to console
+     */
     nil __add_console_output(const std::string& text);
+    
+    /**
+     * @brief Constructor - initializes the user interface
+     * @param pWindow Pointer to the window
+     * @param pRenderer Pointer to the renderer
+     */
     UserInterface(T* pWindow, class Renderer* pRenderer);
+    
+    /**
+     * @brief Starts a new ImGui frame
+     */
     nil NewFrame();
+    
+    /**
+     * @brief Ends the current ImGui frame
+     */
     nil EndFrame();
+    
+    /**
+     * @brief Creates the main docking space
+     */
     nil Dockspace();
+    
+    /**
+     * @brief Renders the main menu bar
+     */
     nil MainMenu();
+    
+    /**
+     * @brief Renders the main UI frame
+     */
     nil DrawFrame();
+    
+    /**
+     * @brief Renders the viewport panel
+     */
     nil Viewport();
+    
+    /**
+     * @brief Renders the toolbox panel
+     */
     nil Toolbox();
+    
+    /**
+     * @brief Renders the console panel
+     */
     nil Console(); 
+    
+    /**
+     * @brief Destructor - cleans up resources
+     */
     ~UserInterface();
 };
 
+/**
+ * @brief Renders the toolbox panel
+ * @tparam T Window type
+ * 
+ * Creates a simple toolbox panel with basic tools and controls.
+ * Currently displays a placeholder "Toolbox" text.
+ */
 template <typename T>
 nil UserInterface<T>::Toolbox() {
     ImGui::Begin("Toolbox", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNavFocus);
@@ -92,6 +216,14 @@ nil UserInterface<T>::Toolbox() {
     ImGui::End();
 }
 
+/**
+ * @brief Renders the console panel
+ * @tparam T Window type
+ * 
+ * Creates an interactive console panel with output display, input field,
+ * and command processing. Supports console output redirection and
+ * basic commands like clear, help, and quit.
+ */
 template <typename T>
 nil UserInterface<T>::Console() {
     ImGui::Begin("Console");
@@ -166,6 +298,14 @@ nil UserInterface<T>::Console() {
     ImGui::End();
 }
 
+/**
+ * @brief Renders the viewport panel
+ * @tparam T Window type
+ * 
+ * Creates a viewport panel that displays the rendered content from the
+ * renderer. Integrates with the Renderer class to show the current
+ * viewport texture in the ImGui interface.
+ */
 template <typename T>
 nil UserInterface<T>::Viewport() {
     ImGui::Begin("Viewport");
@@ -195,6 +335,14 @@ nil UserInterface<T>::Viewport() {
     ImGui::End();
 }
 
+/**
+ * @brief Renders the main UI frame
+ * @tparam T Window type
+ * 
+ * Main UI rendering method that orchestrates all UI panels and components.
+ * Handles the complete UI frame including docking, menus, viewport, toolbox,
+ * console, and various property panels.
+ */
 template <typename T>
 nil UserInterface<T>::DrawFrame() {
     this->NewFrame();
@@ -272,6 +420,13 @@ nil UserInterface<T>::DrawFrame() {
     this->EndFrame();
 }
 
+/**
+ * @brief Starts a new ImGui frame
+ * @tparam T Window type
+ * 
+ * Initializes a new ImGui frame by calling the appropriate ImGui
+ * new frame functions for OpenGL3 and GLFW backends.
+ */
 template <typename T>
 nil UserInterface<T>::NewFrame() {
     ImGui_ImplOpenGL3_NewFrame();
@@ -279,6 +434,13 @@ nil UserInterface<T>::NewFrame() {
     ImGui::NewFrame();
 }
 
+/**
+ * @brief Renders the main menu bar
+ * @tparam T Window type
+ * 
+ * Creates the main menu bar with File and View menus. Provides
+ * basic application controls and options.
+ */
 template <typename T>
 nil UserInterface<T>::MainMenu() {
     if (ImGui::BeginMainMenuBar()) {
@@ -307,6 +469,14 @@ nil UserInterface<T>::MainMenu() {
     }
 }
 
+/**
+ * @brief Creates the main docking space
+ * @tparam T Window type
+ * 
+ * Sets up the main docking space for the ImGui interface, allowing
+ * users to dock and arrange windows as needed. Configures the
+ * docking area to fill the entire viewport.
+ */
 template <typename T>
 nil UserInterface<T>::Dockspace() {
     ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -341,6 +511,13 @@ nil UserInterface<T>::Dockspace() {
     ImGui::PopStyleVar(3);
 }
 
+/**
+ * @brief Ends the current ImGui frame
+ * @tparam T Window type
+ * 
+ * Finalizes the current ImGui frame by rendering all ImGui draw data
+ * and handling multi-viewport updates if enabled.
+ */
 template <typename T>
 nil UserInterface<T>::EndFrame() {
     ImGui::Render();
@@ -355,6 +532,16 @@ nil UserInterface<T>::EndFrame() {
     }
 }
 
+/**
+ * @brief Constructor - initializes the user interface
+ * @tparam T Window type
+ * @param pWindow Pointer to the window
+ * @param pRenderer Pointer to the renderer
+ * 
+ * Initializes ImGui with GLFW and OpenGL3 backends, sets up docking
+ * and viewport support, loads custom fonts, and initializes console
+ * output redirection.
+ */
 template <typename T>
 UserInterface<T>::UserInterface(T* pWindow, class Renderer* pRenderer) {
     IMGUI_CHECKVERSION();
@@ -399,6 +586,13 @@ UserInterface<T>::UserInterface(T* pWindow, class Renderer* pRenderer) {
     return;
 }
 
+/**
+ * @brief Destructor - cleans up resources
+ * @tparam T Window type
+ * 
+ * Cleans up console redirection, shuts down ImGui backends,
+ * and destroys the ImGui context.
+ */
 template <typename T>
 UserInterface<T>::~UserInterface() {
     // Очищаем перенаправление консоли
@@ -413,6 +607,14 @@ UserInterface<T>::~UserInterface() {
     }
 }
 
+/**
+ * @brief Loads default fonts for the UI
+ * @tparam T Window type
+ * @private
+ * 
+ * Loads custom fonts (SF Pro Text) for the ImGui interface.
+ * Falls back to default font if custom fonts are not available.
+ */
 template <typename T>
 nil UserInterface<T>::__load_default_fonts() {
     // Загружаем SF Pro Text как основной шрифт
@@ -461,6 +663,14 @@ nil UserInterface<T>::__load_default_fonts() {
     this->pIO->Fonts->Build();
 }
 
+/**
+ * @brief Initializes console output redirection
+ * @tparam T Window type
+ * @private
+ * 
+ * Sets up console output redirection by creating ConsoleRedirectBuffer
+ * instances for stdout and stderr, and redirecting them to the ImGui console.
+ */
 template <typename T>
 nil UserInterface<T>::__init_console_redirect() {
     // Создаем буферы для перенаправления
@@ -476,6 +686,14 @@ nil UserInterface<T>::__init_console_redirect() {
     __add_console_output("Введите 'help' для списка команд");
 }
 
+/**
+ * @brief Cleans up console output redirection
+ * @tparam T Window type
+ * @private
+ * 
+ * Restores original stdout and stderr streams and cleans up
+ * ConsoleRedirectBuffer instances.
+ */
 template <typename T>
 nil UserInterface<T>::__cleanup_console_redirect() {
     // Восстанавливаем стандартные потоки
@@ -489,6 +707,14 @@ nil UserInterface<T>::__cleanup_console_redirect() {
     cerr_buffer = nullptr;
 }
 
+/**
+ * @brief Adds text to console output
+ * @tparam T Window type
+ * @param text Text to add to console
+ * 
+ * Thread-safe method to add text to the console output buffer.
+ * Automatically handles line splitting and buffer size limits.
+ */
 template <typename T>
 nil UserInterface<T>::__add_console_output(const std::string& text) {
     std::lock_guard<std::mutex> lock(console_mutex);
@@ -508,7 +734,15 @@ nil UserInterface<T>::__add_console_output(const std::string& text) {
     console_scroll_to_bottom = true;
 }
 
-// Реализация функции для перехвата вывода
+/**
+ * @brief Implementation function for console output redirection
+ * @tparam T Window type
+ * @param ui Pointer to UserInterface instance
+ * @param text Text to add to console
+ * 
+ * Helper function used by ConsoleRedirectBuffer to add text
+ * to the console output in a thread-safe manner.
+ */
 template <typename T>
 void __add_console_output_impl(void* ui, const std::string& text) {
     static_cast<UserInterface<T>*>(ui)->__add_console_output(text);

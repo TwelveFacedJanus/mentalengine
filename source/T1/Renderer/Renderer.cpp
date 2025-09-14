@@ -1,8 +1,29 @@
+/**
+ * @file Renderer.cpp
+ * @brief Implementation of the Renderer class
+ * @author MentalEngine Team
+ * @version 1.0.0
+ * @date 2024
+ * 
+ * This file contains the implementation of the Renderer class methods,
+ * including viewport management, shader compilation, and rendering operations.
+ */
+
 #include "Renderer.h"
 #include <iostream>
 #include <algorithm>
 #include <vector>
 
+/**
+ * @brief Initializes the viewport with specified dimensions
+ * 
+ * Creates and configures the OpenGL framebuffer for viewport rendering
+ * with the given width and height. If a viewport was previously initialized,
+ * it will be cleaned up before creating the new one.
+ * 
+ * @param width Viewport width in pixels
+ * @param height Viewport height in pixels
+ */
 nil Renderer::InitViewport(int width, int height) {
     std::cout << "InitViewport called with size: " << width << "x" << height << std::endl;
     
@@ -23,6 +44,16 @@ nil Renderer::InitViewport(int width, int height) {
     viewport_initialized = true;
 }
 
+/**
+ * @brief Renders the viewport content
+ * 
+ * Renders the current viewport content to the framebuffer. If the dimensions
+ * have changed or the viewport is not initialized, it will be reinitialized.
+ * Shaders are initialized on first call if not already done.
+ * 
+ * @param width Desired viewport width in pixels
+ * @param height Desired viewport height in pixels
+ */
 nil Renderer::RenderViewport(int width, int height) {
     // Обновляем размер если изменился
     if (width != viewport_width || height != viewport_height) {
@@ -46,6 +77,14 @@ nil Renderer::RenderViewport(int width, int height) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+/**
+ * @brief Initializes the OpenGL viewport framebuffer
+ * @private
+ * 
+ * Creates and configures the OpenGL framebuffer, texture, and renderbuffer
+ * objects needed for viewport rendering. Sets up proper texture parameters
+ * and framebuffer attachments.
+ */
 nil Renderer::__init_viewport() {
     // Создаем framebuffer
     glGenFramebuffers(1, &viewport_framebuffer);
@@ -73,6 +112,13 @@ nil Renderer::__init_viewport() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+/**
+ * @brief Cleans up viewport OpenGL resources
+ * @private
+ * 
+ * Deletes all OpenGL objects associated with the viewport including
+ * framebuffer, texture, and renderbuffer objects.
+ */
 nil Renderer::__cleanup_viewport() {
     if (viewport_framebuffer) {
         glDeleteFramebuffers(1, &viewport_framebuffer);
@@ -89,6 +135,14 @@ nil Renderer::__cleanup_viewport() {
     viewport_initialized = false;
 }
 
+/**
+ * @brief Initializes and compiles OpenGL shaders
+ * @private
+ * 
+ * Creates, compiles, and links vertex and fragment shaders for basic
+ * rendering operations. Includes error checking and logging for shader
+ * compilation and linking.
+ */
 nil Renderer::__init_shaders() {
     std::cout << "Initializing shaders..." << std::endl;
     
@@ -166,6 +220,12 @@ nil Renderer::__init_shaders() {
     }
 }
 
+/**
+ * @brief Cleans up shader OpenGL resources
+ * @private
+ * 
+ * Deletes the OpenGL shader program and associated resources.
+ */
 nil Renderer::__cleanup_shaders() {
     if (shader_program) {
         glDeleteProgram(shader_program);
@@ -173,6 +233,14 @@ nil Renderer::__cleanup_shaders() {
     }
 }
 
+/**
+ * @brief Renders the main viewport content
+ * @private
+ * 
+ * Renders the main viewport content including a gradient background,
+ * a colored triangle, and the grid overlay. Uses modern OpenGL with
+ * VAOs and VBOs for efficient rendering.
+ */
 nil Renderer::__render_viewport_content() {
     // Очищаем экран
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -307,6 +375,14 @@ nil Renderer::__render_viewport_content() {
     glDeleteBuffers(1, &colorVBO);
 }
 
+/**
+ * @brief Renders the grid overlay
+ * @private
+ * 
+ * Renders a configurable grid overlay on top of the viewport content.
+ * Grid properties such as visibility, cell size, and color can be
+ * controlled through the public interface methods.
+ */
 nil Renderer::__render_grid() {
     if (!show_grid) return;
     
